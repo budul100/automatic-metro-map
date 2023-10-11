@@ -37,11 +37,10 @@ module.exports = {
             hash: true,
             template: "./src/index.html",
             filename: "index.html",
-            title: "taipei-metromap"
+            title: "Automatic Metro Map Creation"
         }),
         new CopyWebpackPlugin([
             {from: `${src}/geodata`, to: `${dist}/geodata`},
-            {from: `${src}/svg`, to: `${dist}/svg`},
         ]),
         new CleanWebpackPlugin([dist], {
             "verbose": true,
@@ -50,5 +49,8 @@ module.exports = {
     ],
     resolve: {
         extensions: [".js", ".json"]
+    },
+    devServer: {
+        open: true
     }
 };

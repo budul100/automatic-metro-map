@@ -9,8 +9,8 @@ import "./js/d3-voronoi.v1.min";
 import "./main.css"
 
 // layout setting
-var w = 800;
-var h = 800;
+var w = 1400;
+var h = 1000;
 
 // map projection setting
 var projection = d3.geo.mercator().scale(1).translate([0, 0]);
@@ -29,7 +29,7 @@ var svg = d3.select("body").append("svg")
 
 var g = svg.append("g");
 
-//svg.call(zoom).call(zoom.event);
+// svg.call(zoom).call(zoom.event);
 
 var drag = d3.behavior.drag()
     .origin(function(d) {return d;})
