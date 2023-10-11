@@ -64,7 +64,6 @@ var origin = [], distorted = [], lines = [], linec = [], linecDistorted = [], ne
 // stations open data, http://data.taipei/opendata/datalist/datasetMeta?oid=758e5ae0-e6ee-448b-81f5-316eb68a5ba7
 queue()
     .defer(d3.json, "geodata/TpeMRTStations_WGS84_2011.geojson") //TpeMRTStations_WGS84_2011.geojson
-    .defer(d3.json, "geodata/Tpe_boundary.geojson")
     .defer(d3.json, "geodata/topology_2011.json")
     .await(metroMap);
 
@@ -72,28 +71,22 @@ queue()
 // line 26, [[93, 98], [98, 27]]
 // line 71, [[54, 50], [50, 55]]
 
-function metroMap(error, stations, tpe, topology) {
+function metroMap(error, stations, topology) {
     if(error) throw error;
 
     topo = topology;
     nodes = stations;
-
-    let b = path.bounds(tpe.features[0]);
-    let s = .95/Math.max((b[1][0] - b[0][0])/w, (b[1][1] - b[0][1])/h);
-    let t = [(w - s*(b[1][0] + b[0][0]))/2, (h - s*(b[1][1] + b[0][1]))/2];
-
-    projection
-        .scale(s)
-        .translate(t);
 
     topoGeo = [];
     topo.forEach(function(e){
         e.topology.forEach(function(c, ci){
             let coords = [];
             for(let i=0; i< c.length; i++) {
-                coords.push(nodes.features[c[i][0]].geometry.coordinates);
+                let current = nodes.features[c[i][0]];
+                if (current !== undefined) coords.push(current.geometry.coordinates);
             }
-            coords.push(nodes.features[c.slice(-1)[0][1]].geometry.coordinates);
+            let last = nodes.features[c.slice(-1)[0][1]];
+            if (last !== undefined) coords.push(last.geometry.coordinates);           
             topoGeo.push({
                 "geometry": {"type": "LineString", "coordinates": coords}, "type": "Feature",
                 "properties": {
@@ -165,18 +158,23 @@ function metroMap(error, stations, tpe, topology) {
     for (let i=0; i<distorted.length; i++) {
         net.push([]);
     }
-
+    
     for(let id=0; id<edgeSet.length; id++) {
-        let i = edgeSet[id][0];
-        let j = edgeSet[id][1];
+        if (edgeSet.size > id)
+        {
+            let i = edgeSet[id][0];
+            let j = edgeSet[id][1];
+    
+            net.push([]);
 
-        net[i].push(j);
-        net[j].push(i);
+            net[i].push(j);
+            net[j].push(i);
+        }
     }
 
     TINmodel();
     // dev
-    //reset2optimal();
+    reset2optimal();
 }
 
 function conjugateGradient(A, b, x) {
@@ -225,14 +223,14 @@ function redraw() {
 
     g.selectAll("circle").transition()
         .attr({
-            "cx": function(d, i) {return distorted[i][0];},
-            "cy": function(d, i) {return distorted[i][1];}
+            "cx": function(d, i) {if (distorted[i] !== undefined) return distorted[i][0];},
+            "cy": function(d, i) {if (distorted[i] !== undefined) return distorted[i][1];}
         });
 
     g.selectAll("text").transition()
         .attr({
-            "x": function(d, i) {return distorted[i][0]+5;},
-            "y": function(d, i) {return distorted[i][1]+5;},
+            "x": function(d, i) {if (distorted[i] !== undefined) return distorted[i][0]+5;},
+            "y": function(d, i) {if (distorted[i] !== undefined) return distorted[i][1]+5;},
             "font-size": 8,
             "fill": "#555",
         })
@@ -244,9 +242,11 @@ function redraw() {
         e.topology.forEach(function(c, ci){
             let coords = [];
             for(let i=0; i< c.length; i++) {
-                coords.push(distorted[c[i][0]]);
+                let current = distorted[c[i][0]];
+                if (current !== undefined) coords.push(current);
             }
-            coords.push(distorted[c.slice(-1)[0][1]]);
+            let last = distorted[c.slice(-1)[0][1]];
+            if (last !== undefined) coords.push(last);
             topoTemp.push(coords);
             coords = coords.map(function(d) {return projection.invert(d);});
             topoTempGeo.push({
@@ -1032,11 +1032,16 @@ function TINmodel() {
         for(let i=0; i<t.geometry.coordinates[0].length-1; i++) {
             let ei = findNodeIdx(t.geometry.coordinates[0][i]);
             let ej = findNodeIdx(t.geometry.coordinates[0][i+1]);
-            coords.push([ei[0], ej[0]]);
+            
+            if (ei && ei.length && ej && ej.length)
+            {
+                coords.push([ei[0], ej[0]]);
 
-            lineCheck.add(ei[1]);
-            lineCheck.add(ej[1]);
+                lineCheck.add(ei[1]);
+                lineCheck.add(ej[1]);
+            }
         }
+
         if(lineCheck.size > 1) {
             let u = numeric.sub(
                 nodes.features[coords[0][0]].geometry.coordinates,
@@ -1049,6 +1054,7 @@ function TINmodel() {
             linec.push(crossVec(u.concat(0), v.concat(0)));
             TINi.push(coords);
         }
+
         TINic.push(coords);
     });
 
